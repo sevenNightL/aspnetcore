@@ -35,6 +35,11 @@
     <HelixPreCommand Include="call RunPowershell.cmd InstallNode.ps1 $(NodeVersion) || exit /b 1" />
   </ItemGroup>
 
+  <!-- Heavy hammer: Run every test using shared Fx bits. -->
+  <PropertyGroup>
+    <TestDependsOnAspNetRuntime>true</TestDependsOnAspNetRuntime>
+  </PropertyGroup>
+
   <!-- $(TestDependsOnAspNetRuntime) implies $(TestDependsOnAspNetPackages). Separate for the App.UnitTests case. -->
   <PropertyGroup Condition=" $(TestDependsOnAspNetRuntime) AND !$(TestDependsOnAspNetPackages) ">
     <TestDependsOnAspNetPackages>true</TestDependsOnAspNetPackages>
@@ -171,6 +176,21 @@
     <ConvertToAbsolutePath Paths="$(PublishDir)">
       <Output TaskParameter="AbsolutePaths" PropertyName="PublishAbsoluteDir" />
     </ConvertToAbsolutePath>
+
+    <!-- Another heavy hammer: Overwrite assemblies from work item payload with those found in shared Fx. -->
+    <ItemGroup>
+      <_FilesFromPublish Include="$(PublishAbsoluteDir)*.dll" />
+      <_FilesFromSharedFx Include="$(LocalDotNetRoot)shared\$(SharedFxName)\$(SharedFxVersion)\*.dll" />
+      <_FilesToOverwrite Include="@(_FilesFromSharedFx)"
+          Condition=" '%(Filename)' != '' AND '@(_FilesFromPublish)' != '' " />
+    </ItemGroup>
+    <Copy SourceFiles="@(_FilesToOverwrite)"
+        DestinationFolder="$(PublishAbsoluteDir)"
+        OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)"
+        Retries="$(CopyRetryCount)"
+        RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
+        SkipUnchangedFiles="$(SkipCopyUnchangedFiles)" />
+
     <ItemGroup>
       <HelixWorkItem Include="$(HelixTestName)">
         <PayloadDirectory>$(PublishAbsoluteDir)</PayloadDirectory>
