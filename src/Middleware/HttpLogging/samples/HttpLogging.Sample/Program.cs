@@ -11,6 +11,11 @@ namespace HttpLogging.Sample
     {
         public static void Main(string[] args)
         {
+            var loggerFactory = LoggerFactory.Create(logging =>
+            {
+                logging.AddConsole();
+            });
+            //loggerFactory.CreateLogger()
             CreateHostBuilder(args).Build().Run();
         }
 
@@ -28,6 +33,10 @@ namespace HttpLogging.Sample
                         };
                     });
                     logging.AddW3CLogger();
+                    logging.AddFilter((category, provider, logLevel) =>
+                    {
+                        return (category.Equals("Microsoft.AspNetCore.W3CLogging") && provider.Equals("Microsoft.Aspnetcore.W3CLoggerProvider") && logLevel >= LogLevel.Information);
+                    }) ;
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {

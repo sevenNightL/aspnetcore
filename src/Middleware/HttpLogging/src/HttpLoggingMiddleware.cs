@@ -25,6 +25,7 @@ namespace Microsoft.AspNetCore.HttpLogging
     {
         private readonly RequestDelegate _next;
         private readonly ILogger _logger;
+        private readonly ILogger _w3cLogger;
         private readonly IOptionsMonitor<HttpLoggingOptions> _options;
         private const int DefaultRequestFieldsMinusHeaders = 7;
         private const int DefaultResponseFieldsMinusHeaders = 2;
@@ -35,8 +36,8 @@ namespace Microsoft.AspNetCore.HttpLogging
         /// </summary>
         /// <param name="next"></param>
         /// <param name="options"></param>
-        /// <param name="logger"></param>
-        public HttpLoggingMiddleware(RequestDelegate next, IOptionsMonitor<HttpLoggingOptions> options, ILogger<HttpLoggingMiddleware> logger)
+        /// <param name="loggerFactory"></param>
+        public HttpLoggingMiddleware(RequestDelegate next, IOptionsMonitor<HttpLoggingOptions> options, ILoggerFactory loggerFactory)
         {
             _next = next ?? throw new ArgumentNullException(nameof(next));
 
@@ -45,13 +46,16 @@ namespace Microsoft.AspNetCore.HttpLogging
                 throw new ArgumentNullException(nameof(options));
             }
 
-            if (logger == null)
+            if (loggerFactory == null)
             {
-                throw new ArgumentNullException(nameof(logger));
+                throw new ArgumentNullException(nameof(loggerFactory));
             }
 
             _options = options;
-            _logger = logger;
+
+            _logger = loggerFactory.CreateLogger<HttpLoggingMiddleware>();
+            // TODO - change this, maybe proxy type
+            _w3cLogger = loggerFactory.CreateLogger("Microsoft.AspNetCore.W3CLogging");
         }
 
         /// <summary>
@@ -72,9 +76,16 @@ namespace Microsoft.AspNetCore.HttpLogging
 
         private async Task InvokeInternal(HttpContext context)
         {
+            Debugger.Launch();
+            Debugger.Break();
             var options = _options.CurrentValue;
 
             var w3cList = new List<KeyValuePair<string, string?>>();
+
+            if (_logger is Microsoft.Extensions.Logging.Logger)
+            {
+
+            }
 
             if (options.LoggingFields.HasFlag(HttpLoggingFields.DateTime))
             {

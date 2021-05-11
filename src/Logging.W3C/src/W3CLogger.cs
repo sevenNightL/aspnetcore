@@ -32,7 +32,7 @@ namespace Microsoft.Extensions.Logging.W3C
             _options = options;
 
             // If the info isn't coming from HttpLoggingMiddleware, no-op (don't log anything)
-            if (name == "Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware")
+            if (name == "Microsoft.AspNetCore.W3CLogging")
             {
                 _isActive = true;
                 _messageQueue = new W3CLoggerProcessor(_options);
