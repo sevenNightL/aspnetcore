@@ -11,6 +11,7 @@ param(
 
 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = 1
 $env:DOTNET_MULTILEVEL_LOOKUP = 0
+$env:VSTEST_DUMP_PATH = $env:HELIX_DUMP_FOLDER
 $env:InstallPlaywright = "$InstallPlaywright"
 $currentDirectory = Get-Location
 $env:PLAYWRIGHT_BROWSERS_PATH = "$currentDirectory\ms-playwright"
