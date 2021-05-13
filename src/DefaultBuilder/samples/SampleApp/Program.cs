@@ -19,9 +19,10 @@ namespace SampleApp
             var app = WebApplication.Create(args);
 
             app.UseStaticFiles();
-            app.MapGet("/", (Func<string>)(() => "Hello, World!"));
+            app.MapGet("/", (Func<HttpContext, string>)((ctx) => "Hello, World!"));
 
-            app.Run();
+            app.Start();
+            Console.ReadLine();
         }
 
         private static void HelloWorld()
