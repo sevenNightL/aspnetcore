@@ -3,7 +3,6 @@
 
 using System;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
@@ -103,6 +102,7 @@ namespace Microsoft.AspNetCore.Http.Connections.Client
                 newOptions.Proxy = options.Proxy;
                 newOptions.UseDefaultCredentials = options.UseDefaultCredentials;
                 newOptions.WebSocketConfiguration = options.WebSocketConfiguration;
+                newOptions.WebSocketFactory = options.WebSocketFactory;
             }
 
             return newOptions;

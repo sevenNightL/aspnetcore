@@ -9,7 +9,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.reactivex.Completable;
+import io.reactivex.rxjava3.core.Completable;
 
 class WebSocketTransport implements Transport {
     private WebSocketWrapper webSocketClient;
@@ -86,8 +86,6 @@ class WebSocketTransport implements Transport {
     }
 
     void onClose(Integer code, String reason) {
-        logger.info("WebSocket connection stopping with " +
-                "code {} and reason '{}'.", code, reason);
         if (code == null || code != 1000) {
             onClose.invoke(reason);
         }

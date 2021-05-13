@@ -7,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Primitives;
 
@@ -462,7 +463,7 @@ namespace Microsoft.Net.Http.Headers
             return MatchesType(mediaType) && MatchesSubtype(mediaType);
         }
 
-
+        /// <inheritdoc />
         public override string ToString()
         {
             var builder = new StringBuilder();
@@ -471,6 +472,7 @@ namespace Microsoft.Net.Http.Headers
             return builder.ToString();
         }
 
+        /// <inheritdoc />
         public override bool Equals(object? obj)
         {
             var other = obj as MediaTypeHeaderValue;
@@ -484,6 +486,7 @@ namespace Microsoft.Net.Http.Headers
                 HeaderUtilities.AreEqualCollections(_parameters, other._parameters);
         }
 
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             // The media-type string is case-insensitive.
@@ -643,7 +646,7 @@ namespace Microsoft.Net.Http.Headers
             }
             else
             {
-                mediaType = input.Substring(startIndex, typeLength) + ForwardSlashCharacter + input.Substring(current, subtypeLength);
+                mediaType = string.Concat(input.AsSpan().Slice(startIndex, typeLength), "/", input.AsSpan().Slice(current, subtypeLength));
             }
 
             return mediaTypeLength;

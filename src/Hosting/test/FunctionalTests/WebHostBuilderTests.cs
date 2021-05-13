@@ -18,10 +18,9 @@ namespace Microsoft.AspNetCore.Hosting.FunctionalTests
         public WebHostBuilderTests(ITestOutputHelper output) : base(output) { }
 
         public static TestMatrix TestVariants => TestMatrix.ForServers(ServerType.Kestrel)
-                .WithTfms(Tfm.Net50);
+                .WithTfms(Tfm.Default);
 
         [ConditionalTheory]
-        [QuarantinedTest]
         [MemberData(nameof(TestVariants))]
         public async Task InjectedStartup_DefaultApplicationNameIsEntryAssembly(TestVariant variant)
         {
@@ -42,18 +41,19 @@ namespace Microsoft.AspNetCore.Hosting.FunctionalTests
 
                 using (var deployer = new SelfHostDeployer(deploymentParameters, loggerFactory))
                 {
-                    await deployer.DeployAsync();
-
-                    string output = string.Empty;
                     var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                    deployer.HostProcess.OutputDataReceived += (sender, args) =>
+                    var output = string.Empty;
+
+                    deployer.ProcessOutputListener = (data) =>
                     {
-                        if (!string.IsNullOrWhiteSpace(args.Data))
+                        if (!string.IsNullOrWhiteSpace(data))
                         {
-                            output += args.Data + '\n';
+                            output += data + '\n';
                             tcs.TrySetResult();
                         }
                     };
+
+                    await deployer.DeployAsync();
 
                     try
                     {

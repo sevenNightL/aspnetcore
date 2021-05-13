@@ -1488,6 +1488,10 @@ namespace TestSite
             Assert.Equal("HTTP/2", httpContext.Request.Protocol);
 #if !FORWARDCOMPAT
             Assert.False(httpContext.Request.CanHaveBody());
+            var feature = httpContext.Features.Get<IHttpUpgradeFeature>();
+            // The upgrade feature won't be present if WebSockets aren't enabled in IIS.
+            // IsUpgradableRequest should always return false for HTTP/2.
+            Assert.False(feature?.IsUpgradableRequest ?? false);
 #endif
             Assert.Null(httpContext.Request.ContentLength);
             Assert.False(httpContext.Request.Headers.ContainsKey(HeaderNames.TransferEncoding));
@@ -1513,7 +1517,7 @@ namespace TestSite
 #endif
             Assert.Null(httpContext.Request.ContentLength);
             // The client didn't send this header, Http.Sys added it for back compat with HTTP/1.1.
-            Assert.Equal("chunked", httpContext.Request.Headers[HeaderNames.TransferEncoding]);
+            Assert.Equal("chunked", httpContext.Request.Headers.TransferEncoding);
             return httpContext.Request.Body.CopyToAsync(httpContext.Response.Body);
         }
 

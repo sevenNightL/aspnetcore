@@ -4,9 +4,9 @@
     <Description>Components for providing real-time bi-directional communication across the Web.</Description>
     <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
     <IsAspNetCoreApp>true</IsAspNetCoreApp>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn.Replace('1591', ''))</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,10 +41,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Microsoft.AspNetCore.Http.Connections.Tests" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <SupportedPlatform Include="browser" />
   </ItemGroup>
 
 </Project>

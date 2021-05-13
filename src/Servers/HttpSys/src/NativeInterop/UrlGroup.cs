@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Server.HttpSys
 {
-    internal class UrlGroup : IDisposable
+    internal partial class UrlGroup : IDisposable
     {
         private static readonly int QosInfoSize =
             Marshal.SizeOf<HttpApiTypes.HTTP_QOS_SETTING_INFO>();
@@ -18,8 +18,9 @@ namespace Microsoft.AspNetCore.Server.HttpSys
 
         private readonly ILogger _logger;
 
-        private ServerSession _serverSession;
+        private ServerSession? _serverSession;
         private bool _disposed;
+        private bool _created;
 
         internal unsafe UrlGroup(ServerSession serverSession, ILogger logger)
         {
@@ -27,6 +28,7 @@ namespace Microsoft.AspNetCore.Server.HttpSys
             _logger = logger;
 
             ulong urlGroupId = 0;
+            _created = true;
             var statusCode = HttpApi.HttpCreateUrlGroup(
                 _serverSession.Id.DangerousGetServerSessionId(), &urlGroupId, 0);
 
@@ -44,6 +46,7 @@ namespace Microsoft.AspNetCore.Server.HttpSys
             _logger = logger;
 
             ulong urlGroupId = 0;
+            _created = false;
             var statusCode = HttpApi.HttpFindUrlGroupId(
                 url.FullPrefix, requestQueue.Handle, &urlGroupId);
 
@@ -80,6 +83,15 @@ namespace Microsoft.AspNetCore.Server.HttpSys
             SetProperty(HttpApiTypes.HTTP_SERVER_PROPERTY.HttpServerDelegationProperty, new IntPtr(&propertyInfo), (uint)RequestPropertyInfoSize);
         }
 
+        internal unsafe void UnSetDelegationProperty(RequestQueue destination, bool throwOnError = true)
+        {
+            var propertyInfo = new HttpApiTypes.HTTP_BINDING_INFO();
+            propertyInfo.Flags = HttpApiTypes.HTTP_FLAGS.NONE;
+            propertyInfo.RequestQueueHandle = destination.Handle.DangerousGetHandle();
+
+            SetProperty(HttpApiTypes.HTTP_SERVER_PROPERTY.HttpServerDelegationProperty, new IntPtr(&propertyInfo), (uint)RequestPropertyInfoSize, throwOnError);
+        }
+
         internal void SetProperty(HttpApiTypes.HTTP_SERVER_PROPERTY property, IntPtr info, uint infosize, bool throwOnError = true)
         {
             Debug.Assert(info != IntPtr.Zero, "SetUrlGroupProperty called with invalid pointer");
@@ -90,7 +102,7 @@ namespace Microsoft.AspNetCore.Server.HttpSys
             if (statusCode != UnsafeNclNativeMethods.ErrorCodes.ERROR_SUCCESS)
             {
                 var exception = new HttpSysException((int)statusCode);
-                _logger.LogError(LoggerEventIds.SetUrlPropertyError, exception, "SetUrlGroupProperty");
+                Log.SetUrlPropertyError(_logger, exception);
                 if (throwOnError)
                 {
                     throw exception;
@@ -100,7 +112,7 @@ namespace Microsoft.AspNetCore.Server.HttpSys
 
         internal void RegisterPrefix(string uriPrefix, int contextId)
         {
-            _logger.LogDebug(LoggerEventIds.RegisteringPrefix, "Listening on prefix: {0}" , uriPrefix);
+            Log.RegisteringPrefix(_logger, uriPrefix);
             CheckDisposed();
             var statusCode = HttpApi.HttpAddUrlToUrlGroup(Id, uriPrefix, (ulong)contextId, 0);
 
@@ -120,7 +132,7 @@ namespace Microsoft.AspNetCore.Server.HttpSys
 
         internal bool UnregisterPrefix(string uriPrefix)
         {
-            _logger.LogInformation(LoggerEventIds.UnregisteringPrefix, "Stop listening on prefix: {0}" , uriPrefix);
+            Log.UnregisteringPrefix(_logger, "Stop listening on prefix: {0}");
             CheckDisposed();
 
             var statusCode = HttpApi.HttpRemoveUrlFromUrlGroup(Id, uriPrefix, 0);
@@ -141,14 +153,20 @@ namespace Microsoft.AspNetCore.Server.HttpSys
 
             _disposed = true;
 
-            Debug.Assert(Id != 0, "HttpCloseUrlGroup called with invalid url group id");
-
-            uint statusCode = HttpApi.HttpCloseUrlGroup(Id);
-
-            if (statusCode != UnsafeNclNativeMethods.ErrorCodes.ERROR_SUCCESS)
+            if (_created)
             {
-                _logger.LogError(LoggerEventIds.CloseUrlGroupError, "HttpCloseUrlGroup; Result: {0}" , statusCode);
+
+                Debug.Assert(Id != 0, "HttpCloseUrlGroup called with invalid url group id");
+
+                uint statusCode = HttpApi.HttpCloseUrlGroup(Id);
+
+                if (statusCode != UnsafeNclNativeMethods.ErrorCodes.ERROR_SUCCESS)
+                {
+                    Log.CloseUrlGroupError(_logger, statusCode);
+                }
+
             }
+
             Id = 0;
         }
 

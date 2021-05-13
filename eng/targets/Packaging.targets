@@ -1,7 +1,8 @@
 <Project>
 
   <Target Name="EnsureBaselineIsUpdated"
-          Condition=" '$(IsServicingBuild)' == 'true' AND
+          Condition=" '$(ValidateBaseline)' == 'true' AND
+              '$(IsServicingBuild)' == 'true' AND
               '$(AspNetCoreBaselineVersion)' != '$(PreviousAspNetCoreReleaseVersion)' AND
               '$(MSBuildProjectName)' != 'BaselineGenerator' AND
               '$(MSBuildProjectName)' != 'RepoTasks' "
@@ -18,7 +19,7 @@
         <PackageId>$(PackageId)</PackageId>
         <PackageVersion>$(PackageVersionForPackageVersionInfo)</PackageVersion>
         <VersionSuffix>$(VersionSuffix)</VersionSuffix>
-        <VersionVariableName>$(PackageId.Replace('.',''))PackageVersion</VersionVariableName>
+        <VersionVariableName>$(PackageId.Replace('.',''))Version</VersionVariableName>
       </_ProjectPathWithVersion>
     </ItemGroup>
   </Target>

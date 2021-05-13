@@ -29,7 +29,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
 
         public static TestMatrix TestVariants
             => TestMatrix.ForServers(DeployerSelector.ServerType)
-                .WithTfms(Tfm.Net50)
+                .WithTfms(Tfm.Default)
                 .WithApplicationTypes(ApplicationType.Portable)
                 .WithAllHostingModels();
 
@@ -44,6 +44,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
         [ConditionalTheory]
         [MemberData(nameof(TestVariants))]
         [MinimumOSVersion(OperatingSystems.Windows, WindowsVersions.Win8)]
+        [MaximumOSVersion(OperatingSystems.Windows, WindowsVersions.Win10_20H2, SkipReason = "https://github.com/dotnet/aspnetcore/issues/29068")]
         public Task HttpsClientCert_GetCertInformation(TestVariant variant)
         {
             return ClientCertTest(variant, sendClientCert: true);
@@ -87,7 +88,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
                     Assert.Equal("Disabled", responseText);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Logger.LogError($"Certificate is invalid. Issuer name: {cert?.Issuer}");
                 using (var store = new X509Store(StoreName.Root, StoreLocation.LocalMachine))
@@ -100,7 +101,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
                     }
                     store.Close();
                 }
-                throw ex;
+                throw;
             }
         }
     }

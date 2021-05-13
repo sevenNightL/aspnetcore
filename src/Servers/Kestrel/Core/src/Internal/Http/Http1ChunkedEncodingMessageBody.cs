@@ -26,7 +26,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
 
         private Mode _mode = Mode.Prefix;
         private volatile bool _canceled;
-        private Task _pumpTask;
+        private Task? _pumpTask;
         private readonly Pipe _requestBodyPipe;
         private ReadResult _readResult;
 
@@ -44,7 +44,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
 
         public override bool TryReadInternal(out ReadResult readResult)
         {
-            TryStart();
+            TryStartAsync();
 
             var boolResult = _requestBodyPipe.Reader.TryRead(out _readResult);
 
@@ -61,7 +61,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
 
         public override async ValueTask<ReadResult> ReadAsyncInternal(CancellationToken cancellationToken = default)
         {
-            TryStart();
+            await TryStartAsync();
 
             try
             {
@@ -93,7 +93,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
         {
             Debug.Assert(!RequestUpgrade, "Upgraded connections should never use this code path!");
 
-            Exception error = null;
+            Exception? error = null;
 
             try
             {
@@ -101,7 +101,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
 
                 if (!awaitable.IsCompleted)
                 {
-                    TryProduceContinue();
+                    await TryProduceContinueAsync();
                 }
 
                 while (true)
@@ -171,6 +171,8 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
             // call complete here on the reader
             _requestBodyPipe.Reader.Complete();
 
+            Debug.Assert(_pumpTask != null, "OnReadStartedAsync must have been called.");
+
             // PumpTask catches all Exceptions internally.
             if (_pumpTask.IsCompleted)
             {
@@ -180,22 +182,23 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
             }
 
             // Should I call complete here?
-            return StopAsyncAwaited();
+            return StopAsyncAwaited(_pumpTask);
         }
 
-        private async ValueTask StopAsyncAwaited()
+        private async ValueTask StopAsyncAwaited(Task pumpTask)
         {
             _canceled = true;
             _context.Input.CancelPendingRead();
-            await _pumpTask;
+            await pumpTask;
 
             // At this point both the request body pipe reader and writer should be completed.
             _requestBodyPipe.Reset();
         }
 
-        protected override void OnReadStarted()
+        protected override Task OnReadStartedAsync()
         {
             _pumpTask = PumpAsync();
+            return Task.CompletedTask;
         }
 
         private bool Read(ReadOnlySequence<byte> readableBuffer, PipeWriter writableBuffer, out SequencePosition consumed, out SequencePosition examined)

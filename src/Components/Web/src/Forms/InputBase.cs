@@ -187,6 +187,7 @@ namespace Microsoft.AspNetCore.Components.Forms
 
 
         /// <inheritdoc />
+        [MemberNotNull(nameof(EditContext), nameof(CascadedEditContext))]
         public override Task SetParametersAsync(ParameterView parameters)
         {
             parameters.SetParameterProperties(this);
@@ -226,7 +227,7 @@ namespace Microsoft.AspNetCore.Components.Forms
                     $"{nameof(Forms.EditContext)} dynamically.");
             }
 
-            SetAdditionalAttributesIfValidationFailed();
+            UpdateAdditionalValidationAttributes();
 
             // For derived components, retain the usual lifecycle with OnInit/OnParametersSet/etc.
             return base.SetParametersAsync(ParameterView.Empty);
@@ -234,16 +235,17 @@ namespace Microsoft.AspNetCore.Components.Forms
 
         private void OnValidateStateChanged(object? sender, ValidationStateChangedEventArgs eventArgs)
         {
-            SetAdditionalAttributesIfValidationFailed();
+            UpdateAdditionalValidationAttributes();
 
             StateHasChanged();
         }
 
-        private void SetAdditionalAttributesIfValidationFailed()
+        private void UpdateAdditionalValidationAttributes()
         {
+            var hasAriaInvalidAttribute = AdditionalAttributes != null && AdditionalAttributes.ContainsKey("aria-invalid");
             if (EditContext.GetValidationMessages(FieldIdentifier).Any())
             {
-                if (AdditionalAttributes != null && AdditionalAttributes.ContainsKey("aria-invalid"))
+                if (hasAriaInvalidAttribute)
                 {
                     // Do not overwrite the attribute value
                     return;
@@ -257,6 +259,25 @@ namespace Microsoft.AspNetCore.Components.Forms
                 // To make the `Input` components accessible by default
                 // we will automatically render the `aria-invalid` attribute when the validation fails
                 additionalAttributes["aria-invalid"] = true;
+            }
+            else if (hasAriaInvalidAttribute)
+            {
+                // No validation errors. Need to remove `aria-invalid` if it was rendered already
+
+                if (AdditionalAttributes!.Count == 1)
+                {
+                    // Only aria-invalid argument is present which we don't need any more
+                    AdditionalAttributes = null;
+                }
+                else
+                {
+                    if (ConvertToDictionary(AdditionalAttributes, out var additionalAttributes))
+                    {
+                        AdditionalAttributes = additionalAttributes;
+                    }
+
+                    additionalAttributes.Remove("aria-invalid");
+                }
             }
         }
 
@@ -295,7 +316,12 @@ namespace Microsoft.AspNetCore.Components.Forms
 
         void IDisposable.Dispose()
         {
-            EditContext.OnValidationStateChanged -= _validationStateChangedHandler;
+            // When initialization in the SetParametersAsync method fails, the EditContext property can remain equal to null
+            if (EditContext is not null)
+            {
+                EditContext.OnValidationStateChanged -= _validationStateChangedHandler;
+            }
+
             Dispose(disposing: true);
         }
     }

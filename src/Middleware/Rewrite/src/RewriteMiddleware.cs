@@ -1,8 +1,6 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-#nullable enable
-
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
@@ -85,7 +83,7 @@ namespace Microsoft.AspNetCore.Rewrite
                         break;
                     case RuleResult.EndResponse:
                         _logger.RewriteMiddlewareRequestResponseComplete(
-                            context.Response.Headers[HeaderNames.Location],
+                            context.Response.Headers.Location,
                             context.Response.StatusCode);
                         return Task.CompletedTask;
                     case RuleResult.SkipRemainingRules:

@@ -4,13 +4,12 @@
 #nullable disable warnings
 
 using System;
-using System.Runtime.ExceptionServices;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Components.HotReload;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Components.Routing
@@ -21,8 +20,9 @@ namespace Microsoft.AspNetCore.Components.Routing
     public class Router : IComponent, IHandleAfterRender, IDisposable
     {
         static readonly char[] _queryOrHashStartChar = new[] { '?', '#' };
-        static readonly ReadOnlyDictionary<string, object> _emptyParametersDictionary
-            = new ReadOnlyDictionary<string, object>(new Dictionary<string, object>());
+        // Dictionary is intentionally used instead of ReadOnlyDictionary to reduce Blazor size
+        static readonly IReadOnlyDictionary<string, object> _emptyParametersDictionary
+            = new Dictionary<string, object>();
 
         RenderHandle _renderHandle;
         string _baseUri;
@@ -34,7 +34,7 @@ namespace Microsoft.AspNetCore.Components.Routing
 
         private Task _previousOnNavigateTask = Task.CompletedTask;
 
-        private readonly HashSet<Assembly> _assemblies = new HashSet<Assembly>();
+        private RouteKey _routeTableLastBuiltForRouteKey;
 
         private bool _onNavigateCalled = false;
 
@@ -75,6 +75,13 @@ namespace Microsoft.AspNetCore.Components.Routing
         /// </summary>
         [Parameter] public EventCallback<NavigationContext> OnNavigateAsync { get; set; }
 
+        /// <summary>
+        /// Gets or sets a flag to indicate whether route matching should prefer exact matches
+        /// over wildcards.
+        /// <para>This property is obsolete and configuring it does nothing.</para>
+        /// </summary>
+        [Parameter] public bool PreferExactMatches { get; set; }
+
         private RouteTable Routes { get; set; }
 
         /// <inheritdoc />
@@ -85,6 +92,11 @@ namespace Microsoft.AspNetCore.Components.Routing
             _baseUri = NavigationManager.BaseUri;
             _locationAbsolute = NavigationManager.Uri;
             NavigationManager.LocationChanged += OnLocationChanged;
+
+            if  (HotReloadFeature.IsSupported)
+            {
+                HotReloadManager.OnDeltaApplied += ClearRouteCaches;
+            }
         }
 
         /// <inheritdoc />
@@ -125,6 +137,10 @@ namespace Microsoft.AspNetCore.Components.Routing
         public void Dispose()
         {
             NavigationManager.LocationChanged -= OnLocationChanged;
+            if (HotReloadFeature.IsSupported)
+            {
+                HotReloadManager.OnDeltaApplied -= ClearRouteCaches;
+            }
         }
 
         private static string StringUntilAny(string str, char[] chars)
@@ -137,16 +153,19 @@ namespace Microsoft.AspNetCore.Components.Routing
 
         private void RefreshRouteTable()
         {
-            var assemblies = AdditionalAssemblies == null ? new[] { AppAssembly } : new[] { AppAssembly }.Concat(AdditionalAssemblies);
-            var assembliesSet = new HashSet<Assembly>(assemblies);
+            var routeKey = new RouteKey(AppAssembly, AdditionalAssemblies);
 
-            if (!_assemblies.SetEquals(assembliesSet))
+            if (!routeKey.Equals(_routeTableLastBuiltForRouteKey))
             {
-                Routes = RouteTableFactory.Create(assemblies);
-                _assemblies.Clear();
-                _assemblies.UnionWith(assembliesSet);
+                _routeTableLastBuiltForRouteKey = routeKey;
+                Routes = RouteTableFactory.Create(routeKey);
             }
+        }
 
+        private void ClearRouteCaches()
+        {
+            RouteTableFactory.ClearCaches();
+            _routeTableLastBuiltForRouteKey = default;
         }
 
         internal virtual void Refresh(bool isNavigationIntercepted)
@@ -251,7 +270,7 @@ namespace Microsoft.AspNetCore.Components.Routing
             _locationAbsolute = args.Location;
             if (_renderHandle.IsInitialized && Routes != null)
             {
-                _ = RunOnNavigateAsync(NavigationManager.ToBaseRelativePath(_locationAbsolute), args.IsNavigationIntercepted);
+                _ = RunOnNavigateAsync(NavigationManager.ToBaseRelativePath(_locationAbsolute), args.IsNavigationIntercepted).Preserve();
             }
         }
 
