@@ -16,7 +16,7 @@ namespace Microsoft.AspNetCore.HttpLogging
         /// <summary>
         /// Fields to log for the Request and Response. Defaults to logging request and response properties and headers.
         /// </summary>
-        public HttpLoggingFields LoggingFields { get; set; } = HttpLoggingFields.RequestPropertiesAndHeaders | HttpLoggingFields.ResponsePropertiesAndHeaders;
+        public HttpLoggingFields LoggingFields { get; set; } = HttpLoggingFields.RequestPropertiesAndHeaders | HttpLoggingFields.ResponsePropertiesAndHeaders | HttpLoggingFields.W3CFields;
 
         /// <summary>
         /// Request header values that are allowed to be logged.
@@ -25,9 +25,9 @@ namespace Microsoft.AspNetCore.HttpLogging
         /// the header name will be logged with a redacted value.
         /// </p>
         /// </summary>
-        public ISet<string> RequestHeaders => _internalRequestHeaders;
+        public ISet<string> RequestHeaders => _internalHttpRequestHeaders;
 
-        internal HashSet<string> _internalRequestHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        internal HashSet<string> _internalHttpRequestHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             HeaderNames.Accept,
             HeaderNames.AcceptEncoding,
@@ -36,6 +36,12 @@ namespace Microsoft.AspNetCore.HttpLogging
             HeaderNames.Connection,
             HeaderNames.ContentLength,
             HeaderNames.ContentType,
+            HeaderNames.Host,
+            HeaderNames.UserAgent
+        };
+
+        internal HashSet<string> _internalW3CRequestHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
             HeaderNames.Host,
             HeaderNames.UserAgent
         };

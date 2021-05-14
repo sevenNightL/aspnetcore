@@ -13,6 +13,10 @@ namespace Microsoft.Extensions.Logging.W3C
                 throw new ArgumentNullException(nameof(builder));
             }
             builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, W3CLoggerProvider>());
+            builder.AddFilter((category, provider, logLevel) =>
+            {
+                return (category.Equals("Microsoft.AspNetCore.W3CLogging") && provider.Equals("Microsoft.Aspnetcore.W3CLoggerProvider") && logLevel >= LogLevel.Information);
+            });
             return builder;
         }
     }

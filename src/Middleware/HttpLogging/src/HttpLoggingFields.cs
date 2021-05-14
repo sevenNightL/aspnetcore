@@ -139,7 +139,7 @@ namespace Microsoft.AspNetCore.HttpLogging
 
         ConnectionInfoFields = ClientIpAddress | ServerIpAddress | ServerPort,
 
-        W3CFields = DateTime | ConnectionInfoFields,
+        W3CFields = DateTime | ConnectionInfoFields | RequestHeaders | RequestProtocol | RequestMethod,
 
         /// <summary>
         /// Flag for logging a collection of HTTP Request properties,

@@ -24,7 +24,7 @@ namespace Microsoft.AspNetCore.HttpLogging
     internal sealed class HttpLoggingMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly ILogger _logger;
+        private readonly ILogger _httpLogger;
         private readonly ILogger _w3cLogger;
         private readonly IOptionsMonitor<HttpLoggingOptions> _options;
         private const int DefaultRequestFieldsMinusHeaders = 7;
@@ -53,7 +53,7 @@ namespace Microsoft.AspNetCore.HttpLogging
 
             _options = options;
 
-            _logger = loggerFactory.CreateLogger<HttpLoggingMiddleware>();
+            _httpLogger = loggerFactory.CreateLogger<HttpLoggingMiddleware>();
             // TODO - change this, maybe proxy type
             _w3cLogger = loggerFactory.CreateLogger("Microsoft.AspNetCore.W3CLogging");
         }
@@ -65,50 +65,48 @@ namespace Microsoft.AspNetCore.HttpLogging
         /// <returns></returns>HttpResponseLog.cs
         public Task Invoke(HttpContext context)
         {
-            if (!_logger.IsEnabled(LogLevel.Information))
+            var httpEnabled = _httpLogger.IsEnabled(LogLevel.Information);
+            var w3cEnabled = _w3cLogger.IsEnabled(LogLevel.Information);
+            if (!httpEnabled && !w3cEnabled)
             {
                 // Logger isn't enabled.
                 return _next(context);
             }
 
-            return InvokeInternal(context);
+            return InvokeInternal(context, httpEnabled, w3cEnabled);
         }
 
-        private async Task InvokeInternal(HttpContext context)
+        private async Task InvokeInternal(HttpContext context, bool httpEnabled, bool w3cEnabled)
         {
-            Debugger.Launch();
-            Debugger.Break();
             var options = _options.CurrentValue;
 
             var w3cList = new List<KeyValuePair<string, string?>>();
 
-            if (_logger is Microsoft.Extensions.Logging.Logger)
+            if (w3cEnabled)
             {
-
-            }
-
-            if (options.LoggingFields.HasFlag(HttpLoggingFields.DateTime))
-            {
-                AddToList(w3cList, nameof(DateTime), DateTime.Now.ToString(CultureInfo.InvariantCulture));
-            }
-
-            if ((HttpLoggingFields.ConnectionInfoFields & options.LoggingFields) != HttpLoggingFields.None)
-            {
-                var connectionInfo = context.Connection;
-
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.ClientIpAddress))
+                if (options.LoggingFields.HasFlag(HttpLoggingFields.DateTime))
                 {
-                    AddToList(w3cList, nameof(ConnectionInfo.RemoteIpAddress), connectionInfo.RemoteIpAddress is null ? "" : connectionInfo.RemoteIpAddress.ToString());
+                    AddToList(w3cList, nameof(DateTime), DateTime.Now.ToString(CultureInfo.InvariantCulture));
                 }
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.ServerIpAddress))
+                if ((HttpLoggingFields.ConnectionInfoFields & options.LoggingFields) != HttpLoggingFields.None)
                 {
-                    AddToList(w3cList, nameof(ConnectionInfo.LocalIpAddress), connectionInfo.LocalIpAddress is null ? "" : connectionInfo.LocalIpAddress.ToString());
-                }
+                    var connectionInfo = context.Connection;
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.ServerPort))
-                {
-                    AddToList(w3cList, nameof(ConnectionInfo.LocalPort), connectionInfo.LocalPort.ToString(CultureInfo.InvariantCulture));
+                    if (options.LoggingFields.HasFlag(HttpLoggingFields.ClientIpAddress))
+                    {
+                        AddToList(w3cList, nameof(ConnectionInfo.RemoteIpAddress), connectionInfo.RemoteIpAddress is null ? "" : connectionInfo.RemoteIpAddress.ToString());
+                    }
+
+                    if (options.LoggingFields.HasFlag(HttpLoggingFields.ServerIpAddress))
+                    {
+                        AddToList(w3cList, nameof(ConnectionInfo.LocalIpAddress), connectionInfo.LocalIpAddress is null ? "" : connectionInfo.LocalIpAddress.ToString());
+                    }
+
+                    if (options.LoggingFields.HasFlag(HttpLoggingFields.ServerPort))
+                    {
+                        AddToList(w3cList, nameof(ConnectionInfo.LocalPort), connectionInfo.LocalPort.ToString(CultureInfo.InvariantCulture));
+                    }
                 }
             }
 
@@ -123,36 +121,57 @@ namespace Microsoft.AspNetCore.HttpLogging
 
                 if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestProtocol))
                 {
-                    AddToList(list, nameof(request.Protocol), request.Protocol);
+                    if (httpEnabled)
+                    {
+                        AddToList(list, nameof(request.Protocol), request.Protocol);
+                    }
+                    if (w3cEnabled)
+                    {
+                        AddToList(w3cList, nameof(request.Protocol), request.Protocol);
+                    }
                 }
 
                 if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestMethod))
                 {
-                    AddToList(list, nameof(request.Method), request.Method);
+                    if (httpEnabled)
+                    {
+                        AddToList(list, nameof(request.Method), request.Method);
+                    }
+                    if (w3cEnabled)
+                    {
+                        AddToList(w3cList, nameof(request.Method), request.Method);
+                    }
                 }
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestScheme))
+                if (httpEnabled && options.LoggingFields.HasFlag(HttpLoggingFields.RequestScheme))
                 {
                     AddToList(list, nameof(request.Scheme), request.Scheme);
                 }
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestPath))
+                if (httpEnabled && options.LoggingFields.HasFlag(HttpLoggingFields.RequestPath))
                 {
                     AddToList(list, nameof(request.PathBase), request.PathBase);
                     AddToList(list, nameof(request.Path), request.Path);
                 }
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestQuery))
+                if (httpEnabled && options.LoggingFields.HasFlag(HttpLoggingFields.RequestQuery))
                 {
                     AddToList(list, nameof(request.QueryString), request.QueryString.Value);
                 }
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestHeaders))
+                if (httpEnabled && options.LoggingFields.HasFlag(HttpLoggingFields.RequestHeaders))
                 {
-                    FilterHeaders(list, request.Headers, options._internalRequestHeaders);
+                    if (httpEnabled)
+                    {
+                        FilterHeaders(list, request.Headers, options._internalHttpRequestHeaders);
+                    }
+                    if (w3cEnabled)
+                    {
+                        FilterHeaders(w3cList, request.Headers, options._internalW3CRequestHeaders);
+                    }
                 }
 
-                if (options.LoggingFields.HasFlag(HttpLoggingFields.RequestBody))
+                if (httpEnabled && options.LoggingFields.HasFlag(HttpLoggingFields.RequestBody))
                 {
                     if (MediaTypeHelpers.TryGetEncodingForMediaType(request.ContentType,
                         options.MediaTypeOptions.MediaTypeStates,
@@ -162,19 +181,22 @@ namespace Microsoft.AspNetCore.HttpLogging
                         requestBufferingStream = new RequestBufferingStream(
                             request.Body,
                             options.RequestBodyLogLimit,
-                            _logger,
+                            _httpLogger,
                             encoding);
                         request.Body = requestBufferingStream;
                     }
                     else
                     {
-                        _logger.UnrecognizedMediaType();
+                        _httpLogger.UnrecognizedMediaType();
                     }
                 }
 
-                var httpRequestLog = new HttpRequestLog(list);
+                if (httpEnabled)
+                {
+                    var httpRequestLog = new HttpRequestLog(list);
 
-                _logger.RequestLog(httpRequestLog);
+                    _httpLogger.RequestLog(httpRequestLog);
+                }
             }
 
             ResponseBufferingStream? responseBufferingStream = null;
@@ -191,7 +213,7 @@ namespace Microsoft.AspNetCore.HttpLogging
                     // TODO pool these.
                     responseBufferingStream = new ResponseBufferingStream(originalBodyFeature,
                         options.ResponseBodyLogLimit,
-                        _logger,
+                        _httpLogger,
                         context,
                         options.MediaTypeOptions.MediaTypeStates,
                         options);
@@ -201,7 +223,7 @@ namespace Microsoft.AspNetCore.HttpLogging
 
                 await _next(context);
 
-                if (requestBufferingStream?.HasLogged == false)
+                if (httpEnabled && requestBufferingStream?.HasLogged == false)
                 {
                     // If the middleware pipeline didn't read until 0 was returned from readasync,
                     // make sure we log the request body.
@@ -211,21 +233,21 @@ namespace Microsoft.AspNetCore.HttpLogging
                 if (responseBufferingStream == null || responseBufferingStream.FirstWrite == false)
                 {
                     // No body, write headers here.
-                    LogResponseHeaders(response, options, _logger);
+                    LogResponseHeaders(response, options, _httpLogger, w3cList, httpEnabled, w3cEnabled);
                 }
 
-                if (responseBufferingStream != null)
+                if (httpEnabled && responseBufferingStream != null)
                 {
                     var responseBody = responseBufferingStream.GetString(responseBufferingStream.Encoding);
                     if (!string.IsNullOrEmpty(responseBody))
                     {
-                        _logger.ResponseBody(responseBody);
+                        _httpLogger.ResponseBody(responseBody);
                     }
                 }
-                if (w3cList.Count > 0)
+                if (w3cEnabled && w3cList.Count > 0)
                 {
                     var httpW3CLog = new HttpW3CLog(w3cList);
-                    _logger.W3CLog(httpW3CLog);
+                    _httpLogger.W3CLog(httpW3CLog);
                 }
             }
             finally
@@ -260,6 +282,35 @@ namespace Microsoft.AspNetCore.HttpLogging
             {
                 list.Add(new KeyValuePair<string, string?>(nameof(response.StatusCode),
                     response.StatusCode.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            if (options.LoggingFields.HasFlag(HttpLoggingFields.ResponseHeaders))
+            {
+                FilterHeaders(list, response.Headers, options._internalResponseHeaders);
+            }
+
+            var httpResponseLog = new HttpResponseLog(list);
+
+            logger.ResponseLog(httpResponseLog);
+        }
+
+        private static void LogResponseHeaders(HttpResponse response, HttpLoggingOptions options, ILogger logger, List<KeyValuePair<string, string?>> w3cList, bool httpEnabled, bool w3cEnabled)
+        {
+            var list = new List<KeyValuePair<string, string?>>(
+                response.Headers.Count + DefaultResponseFieldsMinusHeaders);
+
+            if (options.LoggingFields.HasFlag(HttpLoggingFields.ResponseStatusCode))
+            {
+                if (httpEnabled)
+                {
+                    list.Add(new KeyValuePair<string, string?>(nameof(response.StatusCode),
+                        response.StatusCode.ToString(CultureInfo.InvariantCulture)));
+                }
+                if (w3cEnabled)
+                {
+                    w3cList.Add(new KeyValuePair<string, string?>(nameof(response.StatusCode),
+                        response.StatusCode.ToString(CultureInfo.InvariantCulture)));
+                }
             }
 
             if (options.LoggingFields.HasFlag(HttpLoggingFields.ResponseHeaders))

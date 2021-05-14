@@ -32,7 +32,7 @@ namespace Microsoft.Extensions.Logging.W3C
             _options = options;
 
             // If the info isn't coming from HttpLoggingMiddleware, no-op (don't log anything)
-            if (name == "Microsoft.AspNetCore.W3CLogging")
+            if (name == "Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware")
             {
                 _isActive = true;
                 _messageQueue = new W3CLoggerProcessor(_options);
@@ -53,7 +53,8 @@ namespace Microsoft.Extensions.Logging.W3C
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            if (!IsEnabled(logLevel) || !_isActive)
+            // No-op unless log is enabled, listening to HttpLoggingMiddleware, and event is W3CLog
+            if (!IsEnabled(logLevel) || !_isActive || !eventId.Equals(new EventId(7, "W3CLog")))
             {
                 return;
             }
