@@ -178,7 +178,7 @@
     </ConvertToAbsolutePath>
 
     <!-- Another heavy hammer: Overwrite assemblies from work item payload with those found in shared Fx. -->
-    <ItemGroup>
+    <ItemGroup Condition=" '$(TargetFramework)' == '$(DefaultNetCoreTargetFramework)' ">
       <_FilesFromPublish Include="$(PublishAbsoluteDir)*.dll" />
       <_FilesFromSharedFx Include="$(LocalDotNetRoot)shared\$(SharedFxName)\$(SharedFxVersion)\*.dll" />
       <_FilesToOverwrite Include="@(_FilesFromSharedFx)"
@@ -186,6 +186,7 @@
     </ItemGroup>
     <Copy SourceFiles="@(_FilesToOverwrite)"
         DestinationFolder="$(PublishAbsoluteDir)"
+        Condition=" '$(TargetFramework)' == '$(DefaultNetCoreTargetFramework)' "
         OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)"
         Retries="$(CopyRetryCount)"
         RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
